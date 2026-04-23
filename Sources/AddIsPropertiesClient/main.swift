@@ -1,8 +1,15 @@
 import AddIsProperties
 
-let a = 17
-let b = 25
+@AddIsProperties
+enum Fruit {
+    case apple
+    case orange
+    case waterMelon
+}
 
-let (result, code) = #stringify(a + b)
+let fruit : Fruit = .apple
 
-print("The value \(result) was produced by the code \"\(code)\"")
+
+print(fruit.isApple)
+
+

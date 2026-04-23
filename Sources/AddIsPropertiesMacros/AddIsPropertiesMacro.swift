@@ -1,33 +1,39 @@
-import SwiftCompilerPlugin
 import SwiftSyntax
-import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-/// Implementation of the `stringify` macro, which takes an expression
-/// of any type and produces a tuple containing the value of that expression
-/// and the source code that produced the value. For example
-///
-///     #stringify(x + y)
-///
-///  will expand to
-///
-///     (x + y, "x + y")
-public struct StringifyMacro: ExpressionMacro {
+public struct AddIsPropertiesMacro: MemberMacro {
     public static func expansion(
-        of node: some FreestandingMacroExpansionSyntax,
+        of node: AttributeSyntax,
+        providingMembersOf declaration: some DeclGroupSyntax,
         in context: some MacroExpansionContext
-    ) -> ExprSyntax {
-        guard let argument = node.arguments.first?.expression else {
-            fatalError("compiler bug: the macro does not have any arguments")
+    ) throws -> [DeclSyntax] {
+        guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
+            return []
         }
 
-        return "(\(argument), \(literal: argument.description))"
+        var properties: [DeclSyntax] = []
+
+        // 遍历所有 case
+        for member in enumDecl.memberBlock.members {
+            if let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) {
+                for element in caseDecl.elements {
+                    let caseName = element.name.text
+                    // 将首字母大写
+                    let capitalizedName = caseName.prefix(1).uppercased() + caseName.dropFirst()
+                    
+                    // 生成 isXXX 属性
+                    let property = """
+                    var is\(capitalizedName): Bool {
+                        if case .\(caseName) = self { return true }
+                        return false
+                    }
+                    """
+                    properties.append(DeclSyntax(stringLiteral: property))
+                }
+            }
+        }
+        return properties
     }
 }
 
-@main
-struct AddIsPropertiesPlugin: CompilerPlugin {
-    let providingMacros: [Macro.Type] = [
-        StringifyMacro.self,
-    ]
-}
+// 关键：注册宏插件
